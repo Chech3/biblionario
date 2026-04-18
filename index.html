@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¿Quién quiere ser Biblionario?</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Start Screen -->
+        <section id="start-screen" class="screen active">
+            <div class="logo-container">
+                <h1 class="main-title">¿QUIÉN QUIERE SER <br><span class="highlight">BIBLIONARIO?</span></h1>
+            </div>
+            <div class="start-buttons">
+                <button id="start-btn" class="glass-btn">EMPEZAR JUEGO</button>
+            </div>
+        </section>
+
+        <!-- Game Screen -->
+        <section id="game-screen" class="screen">
+            <div class="top-bar">
+                <div class="lifelines">
+                    <button id="ll-5050" class="lifeline-btn" title="50:50">50:50</button>
+                    <button id="ll-phone" class="lifeline-btn" title="Llamada">📞</button>
+                </div>
+                <div class="timer-container">
+                    <div id="timer-display">30</div>
+                </div>
+                <div class="prize-display">
+                    PREMIO: $<span id="current-prize">0</span>
+                </div>
+            </div>
+
+            <div class="main-game-area">
+                <div class="question-container glass-panel">
+                    <p id="question-text">Preparando pregunta...</p>
+                </div>
+
+                <div class="options-container">
+                    <button class="option-btn hexagon-btn" data-index="0">
+                        <span class="letter">A:</span> <span class="text">Opción 1</span>
+                    </button>
+                    <button class="option-btn hexagon-btn" data-index="1">
+                        <span class="letter">B:</span> <span class="text">Opción 2</span>
+                    </button>
+                    <button class="option-btn hexagon-btn" data-index="2">
+                        <span class="letter">C:</span> <span class="text">Opción 3</span>
+                    </button>
+                    <button class="option-btn hexagon-btn" data-index="3">
+                        <span class="letter">D:</span> <span class="text">Opción 4</span>
+                    </button>
+                </div>
+            </div>
+
+            <aside id="prize-ladder" class="glass-panel">
+                <div class="ladder-item" data-level="15">$1.000.000</div>
+                <div class="ladder-item" data-level="14">$500.000</div>
+                <div class="ladder-item" data-level="13">$250.000</div>
+                <div class="ladder-item" data-level="12">$125.000</div>
+                <div class="ladder-item" data-level="11">$64.000</div>
+                <div class="ladder-item safe" data-level="10">$32.000</div>
+                <div class="ladder-item" data-level="9">$16.000</div>
+                <div class="ladder-item" data-level="8">$8.000</div>
+                <div class="ladder-item" data-level="7">$4.000</div>
+                <div class="ladder-item" data-level="6">$2.000</div>
+                <div class="ladder-item safe" data-level="5">$1.000</div>
+                <div class="ladder-item" data-level="4">$500</div>
+                <div class="ladder-item" data-level="3">$300</div>
+                <div class="ladder-item" data-level="2">$200</div>
+                <div class="ladder-item" data-level="1">$100</div>
+            </aside>
+        </section>
+
+        <!-- Result Screen -->
+        <section id="result-screen" class="screen">
+            <div class="result-card glass-panel">
+                <h2 id="result-title">¡HAS PERDIDO!</h2>
+                <p id="result-message">Te llevas un total de:</p>
+                <div class="final-prize">$<span id="final-prize-amount">0</span></div>
+                <button id="restart-btn" class="glass-btn">VOLVER A JUGAR</button>
+            </div>
+        </section>
+    </div>
+
+    <script src="questions.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
