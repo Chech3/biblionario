@@ -39,12 +39,14 @@
                         <span class="team-score">$0</span>
                     </div>
                 </div>
-                <div class="timer-container">
-                    <div id="timer-display">30</div>
-                </div>
-                <div class="lifelines">
-                    <button id="ll-5050" class="lifeline-btn" title="50:50">50:50</button>
-                    <button id="ll-phone" class="lifeline-btn" title="Llamada">📞</button>
+                <div class="center-group">
+                    <div class="lifelines">
+                        <button id="ll-5050" class="lifeline-btn" title="50:50">50:50</button>
+                        <button id="ll-phone" class="lifeline-btn" title="Llamada">📞</button>
+                    </div>
+                    <div class="timer-container">
+                        <div id="timer-display">30</div>
+                    </div>
                 </div>
             </div>
             
@@ -77,6 +79,7 @@
             </div>
 
             <aside id="prize-ladder" class="glass-panel">
+                <button id="toggle-ladder" class="toggle-btn" title="Ocultar/Mostrar">☰</button>
                 <div class="ladder-item" data-level="15">$1.000.000</div>
                 <div class="ladder-item" data-level="14">$500.000</div>
                 <div class="ladder-item" data-level="13">$250.000</div>
@@ -107,7 +110,7 @@
         <!-- Lifeline Modal -->
         <div id="lifeline-modal" class="modal">
             <div class="modal-content glass-panel">
-                <span class="close-modal">&times;</span>
+                <!-- <span class="close-modal">&times;</span> -->
                 <div id="modal-body"></div>
             </div>
         </div>

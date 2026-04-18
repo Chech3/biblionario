@@ -60,6 +60,8 @@ const prizeLevels = [0, 100, 200, 300, 500, 1000, 2000, 4000, 8000, 16000, 32000
 const safePoints = [0, 5, 10, 15];
 
 let teams = [];
+let usedQuestionIds = new Set();
+let currentQuestion = null;
 
 // Elements
 const startScreen = document.getElementById('start-screen');
@@ -69,6 +71,8 @@ const questionText = document.getElementById('question-text');
 const optionButtons = document.querySelectorAll('.option-btn');
 const timerDisplay = document.getElementById('timer-display');
 const ladderItems = document.querySelectorAll('.ladder-item');
+const prizeLadder = document.getElementById('prize-ladder');
+const toggleLadderBtn = document.getElementById('toggle-ladder');
 const startBtn = document.getElementById('start-btn');
 const startBattleBtn = document.getElementById('start-battle-btn');
 const restartBtn = document.getElementById('restart-btn');
@@ -94,6 +98,10 @@ startBtn.addEventListener('click', () => initGame('solo'));
 startBattleBtn.addEventListener('click', () => initGame('battle'));
 restartBtn.addEventListener('click', resetGame);
 
+toggleLadderBtn.addEventListener('click', () => {
+    prizeLadder.classList.toggle('collapsed');
+});
+
 if (closeModal) {
     closeModal.onclick = () => lifelineModal.style.display = "none";
 }
@@ -117,16 +125,10 @@ function shuffleArray(array) {
     return array;
 }
 
-function selectRandomQuestions() {
-    const easy = shuffleArray(questions.filter(q => q.level === 1)).slice(0, 5);
-    const medium = shuffleArray(questions.filter(q => q.level === 2)).slice(0, 5);
-    const hard = shuffleArray(questions.filter(q => q.level === 3)).slice(0, 5);
-    return [...easy, ...medium, ...hard];
-}
-
 function initGame(mode) {
     AudioController.init();
     gameMode = mode;
+    usedQuestionIds.clear();
     
     if (mode === 'battle') {
         const name1 = team1NameInput.value.trim() || "Equipo 1";
@@ -147,7 +149,6 @@ function initGame(mode) {
     }
 
     currentTeamIndex = 0;
-    sessionQuestions = selectRandomQuestions(); // Note: In battle, we might want more questions or shared ones. For now, shared path.
     
     startScreen.classList.remove('active');
     gameScreen.classList.add('active');
@@ -166,27 +167,46 @@ function announceTurn() {
         
         setTimeout(() => {
             turnAnnouncement.style.display = 'none';
-            loadQuestion();
+            pickNewQuestion();
         }, 2000);
     } else {
-        loadQuestion();
+        pickNewQuestion();
     }
 }
 
-function loadQuestion() {
-    isAnswered = false;
+function pickNewQuestion() {
     const team = teams[currentTeamIndex];
-    const q = sessionQuestions[team.currentStep];
     
-    questionText.textContent = q.question;
+    // Map current step to question level
+    let level = 1;
+    if (team.currentStep >= 5) level = 2;
+    if (team.currentStep >= 10) level = 3;
+
+    const availableQuestions = questions.filter(q => q.level === level && !usedQuestionIds.has(q.id));
+    
+    if (availableQuestions.length === 0) {
+        usedQuestionIds.clear();
+        return pickNewQuestion();
+    }
+
+    currentQuestion = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
+    usedQuestionIds.add(currentQuestion.id);
+    
+    loadQuestion(false);
+}
+
+function loadQuestion(isRetry = false) {
+    isAnswered = false;
+    
+    questionText.textContent = currentQuestion.question;
     optionButtons.forEach((btn, index) => {
-        btn.querySelector('.text').textContent = q.options[index];
+        btn.querySelector('.text').textContent = currentQuestion.options[index];
         btn.classList.remove('selected', 'correct', 'wrong', 'disabled', 'hide');
         btn.style.visibility = 'visible';
     });
 
     updateUI();
-    startTimer();
+    startTimer(isRetry);
 }
 
 function updateUI() {
@@ -220,11 +240,14 @@ function updateLifelineButtons() {
     document.getElementById('ll-phone').classList.toggle('used', !team.lifelines['phone']);
 }
 
-function startTimer() {
+function startTimer(isResuming = false) {
     clearInterval(timerInterval);
-    timeLeft = 30;
+    if (!isResuming) {
+        timeLeft = 30;
+    }
     timerDisplay.textContent = timeLeft;
     timerDisplay.parentElement.classList.remove('timer-low');
+    if (timeLeft <= 10) timerDisplay.parentElement.classList.add('timer-low');
     
     timerInterval = setInterval(() => {
         timeLeft--;
@@ -246,7 +269,7 @@ function handleAnswer(index) {
     clearInterval(timerInterval);
 
     const team = teams[currentTeamIndex];
-    const correctIndex = sessionQuestions[team.currentStep].answer;
+    const correctIndex = currentQuestion.answer;
     
     if (index !== -1) {
         optionButtons[index].classList.add('selected');
@@ -268,16 +291,57 @@ function handleAnswer(index) {
             }, 1500);
         } else {
             if (index !== -1) optionButtons[index].classList.add('wrong');
-            optionButtons[correctIndex].classList.add('correct');
             AudioController.play('wrong');
             
-            team.isEliminated = true;
-            
             setTimeout(() => {
-                switchTurn();
-            }, 2000);
+                showFailChoice();
+            }, 1500);
         }
     }, 1000);
+}
+
+function showFailChoice() {
+    const team = teams[currentTeamIndex];
+    const message = `<b>¡UPS! HAS FALLADO</b><br><br>¿Qué deseas hacer, ${team.name}?`;
+    
+    const actions = [
+        {
+            text: "CONTINUAR",
+            class: "glass-btn highlight-btn",
+            callback: () => {
+                lifelineModal.style.display = "none";
+                loadQuestion(true); // Retry
+            }
+        },
+        {
+            text: "TERMINAR JUEGO",
+            class: "glass-btn",
+            callback: () => {
+                lifelineModal.style.display = "none";
+                team.isEliminated = true;
+                switchTurn();
+            }
+        }
+    ];
+
+    showModalExtended(message, actions);
+}
+
+function showModalExtended(content, buttons = []) {
+    modalBody.innerHTML = content;
+    modalBody.appendChild(document.createElement('br'));
+    
+    buttons.forEach(btnConfig => {
+        const btn = document.createElement('button');
+        btn.textContent = btnConfig.text;
+        btn.className = btnConfig.class;
+        btn.style.marginTop = "15px";
+        btn.style.width = "100%";
+        btn.onclick = btnConfig.callback;
+        modalBody.appendChild(btn);
+    });
+    
+    lifelineModal.style.display = "block";
 }
 
 function switchTurn() {
@@ -356,7 +420,7 @@ function use5050() {
     team.lifelines['5050'] = false;
     updateLifelineButtons();
 
-    const correctIndex = sessionQuestions[team.currentStep].answer;
+    const correctIndex = currentQuestion.answer;
     let indices = [0, 1, 2, 3].filter(i => i !== correctIndex);
     shuffleArray(indices);
     optionButtons[indices[0]].style.visibility = 'hidden';
@@ -369,13 +433,26 @@ function usePhone() {
     team.lifelines['phone'] = false;
     updateLifelineButtons();
 
-    const correctIndex = sessionQuestions[team.currentStep].answer;
-    const options = ['A', 'B', 'C', 'D'];
-    const certainty = 70 + Math.random() * 25;
-    showModal(`<b>📱 Llamada a un amigo:</b><br><br>"Hola ${team.name}, creo que la respuesta es la <b>${options[correctIndex]}</b>. Estoy un ${certainty.toFixed(0)}% seguro."`);
+    clearInterval(timerInterval); // PAUSE
+
+    
+    showModal(
+        `<b>📱 LLAMADA EN CURSO...</b><br><br>El tiempo está pausado mientras consultas con tu amigo.`,
+        true // Show resume button
+    );
 }
 
-function showModal(content) {
-    modalBody.innerHTML = content;
-    lifelineModal.style.display = "block";
+function showModal(content, showResume = false) {
+    const actions = [];
+    if (showResume) {
+        actions.push({
+            text: "CONTINUAR JUEGO",
+            class: "glass-btn highlight-btn",
+            callback: () => {
+                lifelineModal.style.display = "none";
+                startTimer(true);
+            }
+        });
+    }
+    showModalExtended(content, actions);
 }

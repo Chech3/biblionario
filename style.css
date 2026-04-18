@@ -157,8 +157,23 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px;
-    height: 120px;
+    padding: 20px 40px;
+    height: 160px;
+}
+
+.center-group {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.lifelines {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
 .team-status-container {
@@ -414,6 +429,38 @@ body {
 .ladder-item.safe {
     color: var(--accent-gold);
     font-weight: 700;
+}
+
+#prize-ladder.collapsed {
+    width: 60px;
+    padding: 10px;
+    overflow: hidden;
+}
+
+#prize-ladder.collapsed .ladder-item {
+    display: none;
+}
+
+.toggle-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--accent-gold);
+    border-radius: 5px;
+    cursor: pointer;
+    padding: 5px 10px;
+    margin-bottom: 10px;
+    align-self: flex-end;
+    transition: all 0.3s ease;
+}
+
+.toggle-btn:hover {
+    background: var(--accent-orange);
+    color: black;
+}
+
+#prize-ladder.collapsed .toggle-btn {
+    align-self: center;
+    margin-bottom: 0;
 }
 
 /* Result Screen */
