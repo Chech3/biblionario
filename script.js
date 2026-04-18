@@ -16,7 +16,6 @@ const AudioController = {
 
     play(soundName) {
         if (this.sounds[soundName]) {
-            // Start error sounds from 1.0s to skip delay
             if (soundName === 'wrong' || soundName === 'timeout') {
                 this.sounds[soundName].currentTime = 1.0;
             } else {
@@ -33,30 +32,25 @@ const AudioController = {
         });
     },
 
-    // Synthesized Ticking Sound
     playTick() {
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-
         osc.type = 'sine';
         osc.frequency.setValueAtTime(800, this.ctx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.1);
-
         gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
-
         osc.connect(gain);
         gain.connect(this.ctx.destination);
-
         osc.start();
         osc.stop(this.ctx.currentTime + 0.1);
     }
 };
 
 // Game State
-let currentStep = 0;
-let currentPrize = 0;
+let gameMode = 'solo';
+let currentTeamIndex = 0;
 let isAnswered = false;
 let sessionQuestions = [];
 let timerInterval = null;
@@ -65,38 +59,39 @@ let timeLeft = 30;
 const prizeLevels = [0, 100, 200, 300, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000, 1000000];
 const safePoints = [0, 5, 10, 15];
 
+let teams = [];
+
 // Elements
 const startScreen = document.getElementById('start-screen');
 const gameScreen = document.getElementById('game-screen');
 const resultScreen = document.getElementById('result-screen');
 const questionText = document.getElementById('question-text');
 const optionButtons = document.querySelectorAll('.option-btn');
-const prizeDisplay = document.getElementById('current-prize');
 const timerDisplay = document.getElementById('timer-display');
 const ladderItems = document.querySelectorAll('.ladder-item');
 const startBtn = document.getElementById('start-btn');
+const startBattleBtn = document.getElementById('start-battle-btn');
 const restartBtn = document.getElementById('restart-btn');
 const resultTitle = document.getElementById('result-title');
 const resultMessage = document.getElementById('result-message');
 const finalPrizeAmount = document.getElementById('final-prize-amount');
+
+// Team Elements
+const team1Status = document.getElementById('team1-status');
+const team2Status = document.getElementById('team2-status');
+const team1NameInput = document.getElementById('team1-name');
+const team2NameInput = document.getElementById('team2-name');
+const turnAnnouncement = document.getElementById('turn-announcement');
+const turnTeamNameDisplay = document.getElementById('turn-team-name');
 
 // Modals
 const lifelineModal = document.getElementById('lifeline-modal');
 const modalBody = document.getElementById('modal-body');
 const closeModal = document.querySelector('.close-modal');
 
-// Lifelines
-let lifelines = {
-    '5050': true,
-    'phone': true
-};
-
 // Initialization
-startBtn.addEventListener('click', () => {
-    AudioController.init();
-    startGame();
-});
-
+startBtn.addEventListener('click', () => initGame('solo'));
+startBattleBtn.addEventListener('click', () => initGame('battle'));
 restartBtn.addEventListener('click', resetGame);
 
 if (closeModal) {
@@ -111,7 +106,6 @@ optionButtons.forEach(button => {
     button.addEventListener('click', () => handleAnswer(parseInt(button.dataset.index)));
 });
 
-// Lifeline event listeners
 document.getElementById('ll-5050').addEventListener('click', use5050);
 document.getElementById('ll-phone').addEventListener('click', usePhone);
 
@@ -127,40 +121,103 @@ function selectRandomQuestions() {
     const easy = shuffleArray(questions.filter(q => q.level === 1)).slice(0, 5);
     const medium = shuffleArray(questions.filter(q => q.level === 2)).slice(0, 5);
     const hard = shuffleArray(questions.filter(q => q.level === 3)).slice(0, 5);
-    
     return [...easy, ...medium, ...hard];
 }
 
-function startGame() {
-    AudioController.stopAll();
-    AudioController.play('intro');
+function initGame(mode) {
+    AudioController.init();
+    gameMode = mode;
     
-    currentStep = 0;
-    currentPrize = 0;
-    prizeDisplay.textContent = "0";
+    if (mode === 'battle') {
+        const name1 = team1NameInput.value.trim() || "Equipo 1";
+        const name2 = team2NameInput.value.trim() || "Equipo 2";
+        teams = [
+            { name: name1, currentStep: 0, lifelines: { '5050': true, 'phone': true }, isEliminated: false, colorClass: 'blue' },
+            { name: name2, currentStep: 0, lifelines: { '5050': true, 'phone': true }, isEliminated: false, colorClass: 'orange' }
+        ];
+        team1Status.querySelector('.team-name').textContent = name1;
+        team2Status.querySelector('.team-name').textContent = name2;
+        team1Status.style.display = 'flex';
+        team2Status.style.display = 'flex';
+    } else {
+        teams = [{ name: "Jugador", currentStep: 0, lifelines: { '5050': true, 'phone': true }, isEliminated: false, colorClass: 'blue' }];
+        team1Status.style.display = 'flex';
+        team2Status.style.display = 'none';
+        team1Status.querySelector('.team-name').textContent = "PUNTUACIÓN";
+    }
+
+    currentTeamIndex = 0;
+    sessionQuestions = selectRandomQuestions(); // Note: In battle, we might want more questions or shared ones. For now, shared path.
     
     startScreen.classList.remove('active');
     gameScreen.classList.add('active');
     
-    sessionQuestions = selectRandomQuestions();
-    
-    resetLifelines();
-    loadQuestion();
+    announceTurn();
+}
+
+function announceTurn() {
+    const team = teams[currentTeamIndex];
+    if (gameMode === 'battle') {
+        turnAnnouncement.className = `turn-overlay ${team.colorClass}`;
+        turnTeamNameDisplay.textContent = team.name.toUpperCase();
+        turnAnnouncement.style.display = 'flex';
+        
+        AudioController.play('intro');
+        
+        setTimeout(() => {
+            turnAnnouncement.style.display = 'none';
+            loadQuestion();
+        }, 2000);
+    } else {
+        loadQuestion();
+    }
 }
 
 function loadQuestion() {
     isAnswered = false;
-    const q = sessionQuestions[currentStep];
-    questionText.textContent = q.question;
+    const team = teams[currentTeamIndex];
+    const q = sessionQuestions[team.currentStep];
     
+    questionText.textContent = q.question;
     optionButtons.forEach((btn, index) => {
         btn.querySelector('.text').textContent = q.options[index];
         btn.classList.remove('selected', 'correct', 'wrong', 'disabled', 'hide');
         btn.style.visibility = 'visible';
     });
 
-    updateLadder();
+    updateUI();
     startTimer();
+}
+
+function updateUI() {
+    const team = teams[currentTeamIndex];
+    
+    // Update active team highlights
+    team1Status.classList.toggle('active', currentTeamIndex === 0);
+    team2Status.classList.toggle('active', currentTeamIndex === 1);
+    
+    // Update scores
+    team1Status.querySelector('.team-score').textContent = `$${prizeLevels[teams[0].currentStep].toLocaleString()}`;
+    if (teams[1]) {
+        team2Status.querySelector('.team-score').textContent = `$${prizeLevels[teams[1].currentStep].toLocaleString()}`;
+    }
+
+    // Update Ladder
+    ladderItems.forEach(item => {
+        item.classList.remove('current');
+        if (parseInt(item.dataset.level) === team.currentStep + 1) {
+            item.classList.add('current');
+        }
+    });
+
+    // Update Lifelines
+    updateLifelineButtons();
+}
+
+function updateLifelineButtons() {
+    const team = teams[currentTeamIndex];
+    document.getElementById('ll-5050').classList.toggle('used', !team.lifelines['5050']);
+    document.getElementById('ll-phone').classList.toggle('used', !team.lifelines['phone']);
 }
 
 function startTimer() {
@@ -172,29 +229,14 @@ function startTimer() {
     timerInterval = setInterval(() => {
         timeLeft--;
         timerDisplay.textContent = timeLeft;
-        
-        // Tick sound
         AudioController.playTick();
         
-        if (timeLeft <= 10) {
-            timerDisplay.parentElement.classList.add('timer-low');
-        }
+        if (timeLeft <= 10) timerDisplay.parentElement.classList.add('timer-low');
         
         if (timeLeft <= 0) {
             clearInterval(timerInterval);
-            timeOut();
+            handleAnswer(-1); // Timeout
         }
-    }, 1000);
-}
-
-function timeOut() {
-    isAnswered = true;
-    AudioController.play('wrong');
-    const correctIndex = sessionQuestions[currentStep].answer;
-    optionButtons[correctIndex].classList.add('correct');
-    
-    setTimeout(() => {
-        showResult(false, "¡Se acabó el tiempo!");
     }, 1000);
 }
 
@@ -203,72 +245,103 @@ function handleAnswer(index) {
     isAnswered = true;
     clearInterval(timerInterval);
 
-    const correctIndex = sessionQuestions[currentStep].answer;
-    const selectedBtn = optionButtons[index];
+    const team = teams[currentTeamIndex];
+    const correctIndex = sessionQuestions[team.currentStep].answer;
     
-    selectedBtn.classList.add('selected');
+    if (index !== -1) {
+        optionButtons[index].classList.add('selected');
+    }
 
     setTimeout(() => {
         if (index === correctIndex) {
-            selectedBtn.classList.add('correct');
-            AudioController.play('correct');
-            setTimeout(() => {
-                currentStep++;
-                currentPrize = prizeLevels[currentStep];
-                prizeDisplay.textContent = currentPrize.toLocaleString();
-                
-                if (currentStep >= sessionQuestions.length) {
-                    showResult(true);
-                } else {
-                    loadQuestion();
-                }
-            }, 1000);
-        } else {
-            selectedBtn.classList.add('wrong');
-            AudioController.play('wrong');
             optionButtons[correctIndex].classList.add('correct');
+            AudioController.play('correct');
+            
             setTimeout(() => {
-                showResult(false);
-            }, 1000);
+                team.currentStep++;
+                if (team.currentStep >= 15) {
+                    team.isEliminated = true; // Reached the top!
+                    checkGameOver();
+                } else {
+                    switchTurn();
+                }
+            }, 1500);
+        } else {
+            if (index !== -1) optionButtons[index].classList.add('wrong');
+            optionButtons[correctIndex].classList.add('correct');
+            AudioController.play('wrong');
+            
+            team.isEliminated = true;
+            
+            setTimeout(() => {
+                switchTurn();
+            }, 2000);
         }
-    }, 800);
+    }, 1000);
 }
 
-function updateLadder() {
-    ladderItems.forEach(item => {
-        item.classList.remove('current');
-        if (parseInt(item.dataset.level) === currentStep + 1) {
-            item.classList.add('current');
+function switchTurn() {
+    if (gameMode === 'solo') {
+        if (teams[0].isEliminated) {
+            showResult();
+        } else {
+            loadQuestion();
         }
-    });
+        return;
+    }
+
+    // Battle Mode Switch
+    const otherIndex = (currentTeamIndex + 1) % 2;
+    
+    if (!teams[otherIndex].isEliminated) {
+        currentTeamIndex = otherIndex;
+        announceTurn();
+    } else if (!teams[currentTeamIndex].isEliminated) {
+        // Continue with current team if other is eliminated
+        loadQuestion();
+    } else {
+        showResult();
+    }
 }
 
-function showResult(isWin, customTitle) {
-    clearInterval(timerInterval);
+function checkGameOver() {
+    const allFinished = teams.every(t => t.isEliminated || t.currentStep >= 15);
+    if (allFinished) showResult();
+}
+
+function showResult() {
     gameScreen.classList.remove('active');
     resultScreen.classList.add('active');
 
-    let finalPrize = 0;
-    if (isWin) {
-        resultTitle.textContent = "¡ERES BIBLIONARIO!";
-        resultMessage.textContent = "Has ganado el gran premio:";
-        finalPrize = prizeLevels[prizeLevels.length - 1];
-    } else {
-        resultTitle.textContent = customTitle || "¡JUEGO TERMINADO!";
-        resultMessage.textContent = "Te retiras con:";
+    if (gameMode === 'battle') {
+        const s1 = getSafePrize(teams[0].currentStep);
+        const s2 = getSafePrize(teams[1].currentStep);
         
-        let lastSafePoint = 0;
-        for (let i = 0; i < safePoints.length; i++) {
-            if (currentStep >= safePoints[i]) {
-                lastSafePoint = safePoints[i];
-            } else {
-                break;
-            }
+        if (s1 > s2) {
+            resultTitle.textContent = `¡GANÓ ${teams[0].name.toUpperCase()}!`;
+        } else if (s2 > s1) {
+            resultTitle.textContent = `¡GANÓ ${teams[1].name.toUpperCase()}!`;
+        } else {
+            resultTitle.textContent = "¡EMPATE TÉCNICO!";
         }
-        finalPrize = prizeLevels[lastSafePoint];
+        
+        resultMessage.textContent = `${teams[0].name}: $${s1.toLocaleString()} | ${teams[1].name}: $${s2.toLocaleString()}`;
+        finalPrizeAmount.textContent = Math.max(s1, s2).toLocaleString();
+    } else {
+        const prize = getSafePrize(teams[0].currentStep);
+        resultTitle.textContent = teams[0].currentStep >= 15 ? "¡ERES BIBLIONARIO!" : "JUEGO TERMINADO";
+        resultMessage.textContent = "Te retiras con:";
+        finalPrizeAmount.textContent = prize.toLocaleString();
     }
+}
 
-    finalPrizeAmount.textContent = finalPrize.toLocaleString();
+function getSafePrize(step) {
+    if (step >= 15) return prizeLevels[15];
+    let lastSafe = 0;
+    for (const s of safePoints) {
+        if (step >= s) lastSafe = s;
+    }
+    return prizeLevels[lastSafe];
 }
 
 function resetGame() {
@@ -276,43 +349,33 @@ function resetGame() {
     startScreen.classList.add('active');
 }
 
-function resetLifelines() {
-    lifelines = { '5050': true, 'phone': true };
-    document.querySelectorAll('.lifeline-btn').forEach(btn => btn.classList.remove('used'));
-}
-
-// Lifeline Logic
+// Lifelines
 function use5050() {
-    if (!lifelines['5050'] || isAnswered) return;
-    lifelines['5050'] = false;
-    document.getElementById('ll-5050').classList.add('used');
+    const team = teams[currentTeamIndex];
+    if (!team.lifelines['5050'] || isAnswered) return;
+    team.lifelines['5050'] = false;
+    updateLifelineButtons();
 
-    const correctIndex = sessionQuestions[currentStep].answer;
-    let removedCount = 0;
+    const correctIndex = sessionQuestions[team.currentStep].answer;
     let indices = [0, 1, 2, 3].filter(i => i !== correctIndex);
-    
-    while (removedCount < 2) {
-        const randIdx = Math.floor(Math.random() * indices.length);
-        const toHide = indices.splice(randIdx, 1)[0];
-        optionButtons[toHide].style.visibility = 'hidden';
-        removedCount++;
-    }
+    shuffleArray(indices);
+    optionButtons[indices[0]].style.visibility = 'hidden';
+    optionButtons[indices[1]].style.visibility = 'hidden';
 }
 
 function usePhone() {
-    if (!lifelines['phone'] || isAnswered) return;
-    lifelines['phone'] = false;
-    document.getElementById('ll-phone').classList.add('used');
+    const team = teams[currentTeamIndex];
+    if (!team.lifelines['phone'] || isAnswered) return;
+    team.lifelines['phone'] = false;
+    updateLifelineButtons();
 
-    const correctIndex = sessionQuestions[currentStep].answer;
+    const correctIndex = sessionQuestions[team.currentStep].answer;
     const options = ['A', 'B', 'C', 'D'];
     const certainty = 70 + Math.random() * 25;
-
-    showModal(`<b>📱 Llamada a un amigo:</b><br><br>"Hola, creo que la respuesta correcta es la <b>${options[correctIndex]}</b>. Estoy un ${certainty.toFixed(0)}% seguro de ello."`);
+    showModal(`<b>📱 Llamada a un amigo:</b><br><br>"Hola ${team.name}, creo que la respuesta es la <b>${options[correctIndex]}</b>. Estoy un ${certainty.toFixed(0)}% seguro."`);
 }
 
 function showModal(content) {
     modalBody.innerHTML = content;
     lifelineModal.style.display = "block";
 }
-

@@ -14,23 +14,44 @@
             <div class="logo-container">
                 <h1 class="main-title">¿QUIÉN QUIERE SER <br><span class="highlight">BIBLIONARIO?</span></h1>
             </div>
-            <div class="start-buttons">
-                <button id="start-btn" class="glass-btn">EMPEZAR JUEGO</button>
+            <div class="mode-selection">
+                <div class="team-inputs">
+                    <input type="text" id="team1-name" placeholder="Equipo 1 (Azul)" class="glass-input">
+                    <input type="text" id="team2-name" placeholder="Equipo 2 (Naranja)" class="glass-input">
+                </div>
+                <div class="start-buttons">
+                    <button id="start-btn" class="glass-btn">SOLO</button>
+                    <button id="start-battle-btn" class="glass-btn highlight-btn">BATALLA EN EQUIPOS</button>
+                </div>
             </div>
         </section>
 
         <!-- Game Screen -->
         <section id="game-screen" class="screen">
             <div class="top-bar">
-                <div class="lifelines">
-                    <button id="ll-5050" class="lifeline-btn" title="50:50">50:50</button>
-                    <button id="ll-phone" class="lifeline-btn" title="Llamada">📞</button>
+                <div class="team-status-container">
+                    <div id="team1-status" class="team-status blue">
+                        <span class="team-name">Equipo 1</span>
+                        <span class="team-score">$0</span>
+                    </div>
+                    <div id="team2-status" class="team-status orange">
+                        <span class="team-name">Equipo 2</span>
+                        <span class="team-score">$0</span>
+                    </div>
                 </div>
                 <div class="timer-container">
                     <div id="timer-display">30</div>
                 </div>
-                <div class="prize-display">
-                    PREMIO: $<span id="current-prize">0</span>
+                <div class="lifelines">
+                    <button id="ll-5050" class="lifeline-btn" title="50:50">50:50</button>
+                    <button id="ll-phone" class="lifeline-btn" title="Llamada">📞</button>
+                </div>
+            </div>
+            
+            <div id="turn-announcement" class="turn-overlay">
+                <div class="turn-content">
+                    <h2 id="turn-team-name">EQUIPO 1</h2>
+                    <p>ES TU TURNO</p>
                 </div>
             </div>
 
@@ -83,6 +104,13 @@
                 <button id="restart-btn" class="glass-btn">VOLVER A JUGAR</button>
             </div>
         </section>
+        <!-- Lifeline Modal -->
+        <div id="lifeline-modal" class="modal">
+            <div class="modal-content glass-panel">
+                <span class="close-modal">&times;</span>
+                <div id="modal-body"></div>
+            </div>
+        </div>
     </div>
 
     <script src="questions.js"></script>
